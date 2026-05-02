@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: sentiment_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - sentiment_net
+
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: sentiment_api
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      - MONGO_URI=${MONGO_URI:-mongodb://admin:admin123@mongo:27017/?authSource=admin}
+      - DB_NAME=${DB_NAME:-sentiment_db}
+      - COLLECTION_NAME=${COLLECTION_NAME:-sentiments}
+      - MODEL_PATH=/app/model/model.joblib
+    depends_on:
+      - mongo
+    networks:
+      - sentiment_net
+
+  spark_predict:
+    build:
+      context: ../services/spark_pipeline
+      dockerfile: Dockerfile
+    container_name: sentiment_spark_predict
+    environment:
+      - MONGO_URI=mongodb://admin:admin123@mongo:27017/?authSource=admin
+      - DB_NAME=sentiment_db
+      - COLLECTION_NAME=sentiments
+    volumes:
+      - ../data:/app/data
+      - ../services/spark_pipeline/models:/app/models
+    depends_on:
+      - mongo
+    networks:
+      - sentiment_net
+
+volumes:
+  mongo_data:
+
+networks:
+  sentiment_net:
+    driver: bridge
