@@ -1,0 +1,12 @@
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Instalar Python 3, pip, venv y Node.js (con npm)
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-venv curl && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean
+
+USER jenkins
