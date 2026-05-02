@@ -1,81 +1,104 @@
-# SentimentStream: Sistema Distribuido de Análisis de Sentimientos
+# SentimentStream — Sistema Distribuido de Análisis de Sentimientos
 
-## 1. Introducción
+## Acceso al sistema
 
-**SentimentStream** es una solución arquitectónica integral diseñada para el análisis de sentimientos en texto mediante el uso de algoritmos de Machine Learning. El proyecto implementa una variación de la **Arquitectura Lambda**, permitiendo procesar y analizar datos textuales en dos modalidades operativas: procesamiento masivo distribuido (Batch) e inferencia transaccional en tiempo real (Speed). 
+- **Frontend (Vercel):** https://iue-big-data-feeling.vercel.app/
+- **API (Render):** https://iue-big-data-feeling.onrender.com
+- **Power BI Dashboard:** https://app.powerbi.com/view?r=eyJrIjoiNzI2MzQ2MDItMDNmZS00YTAyLWJjZDYtNTc0Yjg4OGVhZWRiIiwidCI6IjAwNTRhYWU4LWU0YTUtNDRlYy1iZDg5LWJlNDkyYmU5NGU1NyIsImMiOjR9
 
-Este repositorio consolida el desarrollo del ecosistema completo, abarcando desde la ingesta y vectorización de datos hasta la integración continua y el despliegue en infraestructuras Cloud.
+## Descripción
 
----
+SentimentStream es una plataforma distribuida que clasifica en tiempo real los sentimientos (positivo, negativo, neutral) de textos ingresados por usuarios. Resuelve el problema de latencia en modelos Big Data usando una arquitectura dual. Combina Apache Spark para el entrenamiento masivo asíncrono y una API de Flask con Scikit-learn para inferencias ultrarrápidas. Los resultados se visualizan en un dashboard de Power BI embebido en una interfaz moderna de React.
 
-## 2. Arquitectura del Sistema
+## Arquitectura
 
-El ecosistema se compone de capas funcionales estrictamente delimitadas para garantizar alta disponibilidad, baja latencia computacional y escalabilidad horizontal:
+El sistema implementa una Arquitectura Lambda simplificada para garantizar rendimiento y escalabilidad:
 
-### 2.1. Capa de Procesamiento Batch (Apache Spark)
-- **Componente Central:** `services/spark_pipeline/jobs/predict_batch.py` y `train.py`.
-- **Propósito:** Responsable del procesamiento distribuido de conjuntos de datos masivos. Emplea `Spark MLlib` para la extracción de características textuales y la vectorización de términos. Su ejecución asíncrona es ideal para la consolidación de modelos estadísticos robustos y la inserción de métricas analíticas directas a la base de datos sin afectar el rendimiento transaccional.
+- **Capa Batch:** Apache Spark se encarga del procesamiento masivo y entrenamiento distribuido de los modelos.
+- **Capa Speed:** Flask y Scikit-learn exponen el modelo entrenado para inferencias inmediatas en tiempo real.
+- **Base de Datos:** MongoDB Atlas persiste todas las predicciones y estadísticas.
+- **Frontend:** React (SPA) consume la API para interactuar con el usuario.
+- **Business Intelligence:** Power BI consume los datos para generar reportes gerenciales.
 
-### 2.2. Capa de Inferencia en Tiempo Real (Scikit-Learn & Flask)
-- **Componente Central:** `api/model/predictor.py` y entorno WSGI (`gunicorn`).
-- **Propósito:** Resuelve la problemática de latencia inherente a la instanciación de la JVM (Java Virtual Machine) que requiere Spark. En paralelo al entrenamiento distribuido, se exporta una representación optimizada del modelo predictivo (`CountVectorizer` y clasificador `Multinomial Naive Bayes`) utilizando la librería `scikit-learn`. El modelo se expone mediante una interfaz RESTful sobre el framework Flask, reduciendo el tiempo de respuesta en la inferencia a valores sub-100ms.
+**Diagrama de flujo de datos:**
+React → API Flask → MongoDB → Power BI
 
-### 2.3. Capa de Presentación (React & Vite)
-- **Componente Central:** `apps/frontend/`.
-- **Propósito:** Single Page Application (SPA) que provee una interfaz gráfica asíncrona. Se apoya en heurísticas reactivas para reflejar inmediatamente las variaciones estadísticas reportadas por la API, integrando adicionalmente cuadros de mando (dashboards) avanzados construidos en Microsoft Power BI para la inteligencia de negocios (BI).
+## Tecnologías usadas
 
----
+- PySpark
+- Scikit-learn
+- Flask
+- MongoDB Atlas
+- React + Vite + Tailwind
+- Power BI
+- Docker
+- Jenkins
+- Render
+- Vercel
 
-## 3. Estrategia de Despliegue en la Nube (Cloud Deployment)
+## Ejecución local
 
-El sistema ha sido estructurado siguiendo el paradigma de un Monorepo, facilitando su despliegue automatizado y segmentado en múltiples plataformas especializadas de Cloud Computing.
+### Backend
+```bash
+cd api
+pip install -r requirements.txt
+python app.py
+```
 
-### 3.1. Persistencia de Datos (MongoDB Atlas)
-- **Proveedor:** MongoDB Atlas.
-- **Configuración:** Implementación de un clúster de bases de datos NoSQL para la persistencia transaccional. Requiere configuración explícita de `Network Access` (IP `0.0.0.0/0`) para mitigar rechazos a nivel TLS durante las peticiones asíncronas desde instancias Cloud dinámicas.
+### Frontend
+```bash
+cd apps/frontend
+npm install
+npm run dev
+```
 
-### 3.2. Despliegue del Backend RESTful (Render)
-- **Proveedor:** Render Cloud Platform.
-- **Configuración Requerida:** 
-  - Directorio Raíz: `api`
-  - Ejecución WSGI: `gunicorn app:app`
-  - Variables de Entorno Obligatorias:
-    - `MONGO_URI`: Cadena de conexión hacia MongoDB Atlas.
-    - `MODEL_PATH`: Ubicación relativa del modelo exportado (`model/model.joblib`).
-    - `DB_NAME` y `COLLECTION_NAME`.
+## Endpoints principales
 
-### 3.3. Despliegue del Frontend Cliente (Vercel)
-- **Proveedor:** Vercel.
-- **Configuración Requerida:** 
-  - Directorio Raíz: `apps/frontend`
-  - Variables de Entorno Obligatorias:
-    - `VITE_API_URL`: Dirección de la API pública desplegada.
-    - `VITE_POWERBI_URL`: URL del reporte analítico embebido.
+| Endpoint | Descripción |
+|---|---|
+| `GET /health` | Verifica la disponibilidad de la API y el estado del servidor. |
+| `GET /api/stats` | Obtiene el conteo total agrupado de sentimientos (positivo, negativo, neutral). |
+| `GET /api/sentiments` | Devuelve los últimos registros procesados para poblar la tabla visual. |
+| `POST /api/predict` | Recibe un texto, ejecuta el modelo de Machine Learning y retorna la predicción. |
 
----
+## Dashboard
 
-## 4. Integración Continua y Entrega Continua (CI/CD)
+El sistema integra un dashboard analítico avanzado alojado en Microsoft Power BI. Este tablero está embebido directamente en la aplicación web mediante un iframe seguro.
 
-El repositorio incorpora una canalización de despliegue automatizado gestionada mediante **Jenkins**.
+Exhibe métricas clave como la distribución histórica de sentimientos, la evolución temporal de las percepciones de los usuarios y una matriz detallada con las predicciones.
 
-### Estructura del Pipeline (`Jenkinsfile`)
-El flujo de validación automática se rige por tres fases declarativas que garantizan la integridad del código previo a cualquier despliegue productivo:
-1. **Source Control Checkout:** Sincronización criptográfica con el repositorio remoto.
-2. **Backend Validation:** Creación de un entorno virtual aislado para validar las dependencias algorítmicas de Python (`requirements.txt`). Implementa mitigaciones dinámicas en el pipeline para la resolución automática de dependencias que carecen de binarios pre-compilados en entornos virtualizados de pruebas (e.g., resolviendo colisiones con versiones recientes de Python mediante `sed`).
-3. **Frontend Compilation:** Descarga de paquetes Node.js (`npm install`) y ensamblaje de los artefactos estáticos listos para distribución (SPA build).
+## Flujo del sistema
 
----
+1. El usuario ingresa un texto a través de la aplicación React.
+2. La API Flask recibe el texto y usa Scikit-learn para predecir el sentimiento.
+3. El resultado y la confianza estadística se guardan inmediatamente en MongoDB.
+4. El Frontend se actualiza asíncronamente mostrando el nuevo registro y estadísticas.
+5. Power BI refleja las métricas actualizadas para la toma de decisiones.
 
-## 5. Documentación de Endpoints REST (API)
+## CI/CD
 
-A continuación, se detalla la especificación de los recursos expuestos por la API alojada en la raíz del entorno productivo (por defecto `http://localhost:5000` en entornos de desarrollo).
+El proyecto cuenta con un pipeline de Integración Continua gestionado con Jenkins. Este proceso automatizado garantiza la calidad del código mediante tres pasos:
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/health` | Validación de disponibilidad del servicio y tolerancia a fallos. |
-| `GET` | `/api/stats` | Agrupación analítica y agregación de sentimientos globales mediante pipelines O-D en MongoDB. |
-| `GET` | `/api/sentiments?limit=N` | Recuperación paginada del histórico reciente de inferencias. |
-| `POST` | `/api/predict` | End-point transaccional. Ingiere el texto (payload JSON `{"texto": "..."}`), lo procesa a través del modelo Naive Bayes y retorna la clasificación estadística con su respectivo factor de confianza. |
+- Clona automáticamente la última versión del código fuente desde el repositorio.
+- Instala las dependencias del backend validando que el entorno Python compile correctamente.
+- Ejecuta el proceso de construcción del frontend para confirmar que la interfaz gráfica no presenta errores.
 
----
+## Despliegue
 
+La infraestructura está totalmente alojada en la nube utilizando servicios especializados:
+
+- **MongoDB Atlas:** Aloja el clúster de base de datos NoSQL asegurando alta disponibilidad.
+- **Render:** Hospeda la API de Python garantizando procesamiento ininterrumpido de inferencias.
+- **Vercel:** Despliega los archivos estáticos de la aplicación React con actualizaciones automáticas.
+
+## Evidencia
+
+![dashboard](docs/dashboard.png)
+![predict](docs/predict.png)
+
+## Demo
+
+- Predicción en tiempo real procesando nuevos textos ingresados.
+- Actualización inmediata de los componentes gráficos del frontend.
+- Navegación y filtrado interactivo en el dashboard de Power BI.
+- Ejecución completa y exitosa del pipeline de integración en Jenkins.
