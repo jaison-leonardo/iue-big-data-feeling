@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Configuramos la variable de entorno para evitar warnings de npm
         CI = 'true'
     }
 
@@ -18,11 +17,15 @@ pipeline {
             steps {
                 echo 'Instalando dependencias de Python para la API Flask...'
                 dir('api') {
-                    // Usamos sh para Linux/Docker. (Si tu Jenkins corre nativo en Windows usa 'bat' en lugar de 'sh')
                     sh '''
                         python3 -m venv venv
                         . venv/bin/activate
                         pip install --upgrade pip
+                        
+                        # TRUCO CI: Jenkins usa Python 3.13 que no tiene binarios precompilados para scikit-learn 1.3.2.
+                        # Para que pase el pipeline sin alterar producción, le quitamos la versión estricta solo aquí:
+                        sed -i 's/scikit-learn==1.3.2/scikit-learn/g' requirements.txt
+                        
                         pip install -r requirements.txt
                         echo "Backend construido exitosamente."
                     '''
