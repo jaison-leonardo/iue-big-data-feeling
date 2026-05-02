@@ -22,9 +22,9 @@ pipeline {
                         . venv/bin/activate
                         pip install --upgrade pip
                         
-                        # TRUCO CI: Jenkins usa Python 3.13 que no tiene binarios precompilados para scikit-learn 1.3.2.
-                        # Para que pase el pipeline sin alterar producción, le quitamos la versión estricta solo aquí:
-                        sed -i 's/scikit-learn==1.3.2/scikit-learn/g' requirements.txt
+                        # TRUCO CI: Jenkins usa Python 3.13 que no tiene binarios precompilados para versiones antiguas (pandas, scikit-learn, etc).
+                        # Para que pase el pipeline sin alterar producción, le quitamos las versiones estrictas solo aquí:
+                        sed -i 's/==.*//g' requirements.txt
                         
                         pip install -r requirements.txt
                         echo "Backend construido exitosamente."
