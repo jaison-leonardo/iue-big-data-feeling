@@ -49,10 +49,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline completado exitosamente. Todo el código compila correctamente.'
+            echo 'Pipeline completado exitosamente. Todo el código compila correctamente.'
         }
         failure {
-            echo '❌ Pipeline falló. Revisa los logs.'
+            echo 'Pipeline falló. Revisa los logs.'
         }
         always {
             echo 'Limpiando entorno...'

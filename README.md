@@ -1,116 +1,81 @@
-# SentimentStream - Hito 3
+# SentimentStream: Sistema Distribuido de Análisis de Sentimientos
 
-Backend funcional local con Flask + MongoDB para análisis de sentimientos, integrando inferencia real de Machine Learning con Scikit-Learn.
+## 1. Introducción
 
-## Arquitectura Híbrida de Machine Learning
+**SentimentStream** es una solución arquitectónica integral diseñada para el análisis de sentimientos en texto mediante el uso de algoritmos de Machine Learning. El proyecto implementa una variación de la **Arquitectura Lambda**, permitiendo procesar y analizar datos textuales en dos modalidades operativas: procesamiento masivo distribuido (Batch) e inferencia transaccional en tiempo real (Speed). 
 
-El proyecto utiliza una **arquitectura híbrida** (Lambda Architecture pattern adaptado) para servir los modelos de NLP:
+Este repositorio consolida el desarrollo del ecosistema completo, abarcando desde la ingesta y vectorización de datos hasta la integración continua y el despliegue en infraestructuras Cloud.
 
-1. **Spark ML (Procesamiento Batch):**
-   - Utilizado en `services/spark_pipeline/jobs/predict_batch.py`.
-   - Lee volúmenes masivos de datos o bases de datos enteras, procesa las transformaciones usando procesamiento distribuido y vuelca los resultados directamente a MongoDB.
+---
 
-2. **Scikit-Learn (Inferencia en Tiempo Real - API Flask):**
-   - Utilizado en `api/model/predictor.py`.
-   - Se entrena en paralelo al modelo de Spark en `train.py` para tener exactamente el mismo pipeline lógico (`CountVectorizer` + `NaiveBayes`).
-   - El modelo entrenado se exporta como `model.joblib`.
-   - **Razón:** Spark es demasiado pesado (latencias de inicialización, overhead de JVM) para responder a una solicitud HTTP de un usuario final. Al instanciar un modelo pre-entrenado de scikit-learn en Flask, garantizamos respuestas ultrarrápidas (<100ms), mientras mantenemos la coherencia de los algoritmos de predicción.
+## 2. Arquitectura del Sistema
 
-## Requisitos Previos
+El ecosistema se compone de capas funcionales estrictamente delimitadas para garantizar alta disponibilidad, baja latencia computacional y escalabilidad horizontal:
 
-- Docker y Docker Compose
-- Python 3.10+ (Si deseas correr los tests localmente)
+### 2.1. Capa de Procesamiento Batch (Apache Spark)
+- **Componente Central:** `services/spark_pipeline/jobs/predict_batch.py` y `train.py`.
+- **Propósito:** Responsable del procesamiento distribuido de conjuntos de datos masivos. Emplea `Spark MLlib` para la extracción de características textuales y la vectorización de términos. Su ejecución asíncrona es ideal para la consolidación de modelos estadísticos robustos y la inserción de métricas analíticas directas a la base de datos sin afectar el rendimiento transaccional.
 
-## Instrucciones de Ejecución
+### 2.2. Capa de Inferencia en Tiempo Real (Scikit-Learn & Flask)
+- **Componente Central:** `api/model/predictor.py` y entorno WSGI (`gunicorn`).
+- **Propósito:** Resuelve la problemática de latencia inherente a la instanciación de la JVM (Java Virtual Machine) que requiere Spark. En paralelo al entrenamiento distribuido, se exporta una representación optimizada del modelo predictivo (`CountVectorizer` y clasificador `Multinomial Naive Bayes`) utilizando la librería `scikit-learn`. El modelo se expone mediante una interfaz RESTful sobre el framework Flask, reduciendo el tiempo de respuesta en la inferencia a valores sub-100ms.
 
-1. **Configurar el entorno**:
-   Copia el archivo de variables de entorno:
-   ```bash
-   cp .env.example .env
-   ```
+### 2.3. Capa de Presentación (React & Vite)
+- **Componente Central:** `apps/frontend/`.
+- **Propósito:** Single Page Application (SPA) que provee una interfaz gráfica asíncrona. Se apoya en heurísticas reactivas para reflejar inmediatamente las variaciones estadísticas reportadas por la API, integrando adicionalmente cuadros de mando (dashboards) avanzados construidos en Microsoft Power BI para la inteligencia de negocios (BI).
 
-2. **Levantar la Infraestructura**:
-   Ve a la carpeta `infra` y ejecuta Docker Compose:
-   ```bash
-   cd infra
-   docker-compose up -d --build
-   ```
+---
 
-3. **Verificar estado de los servicios**:
-   ```bash
-   docker-compose ps
-   ```
+## 3. Estrategia de Despliegue en la Nube (Cloud Deployment)
 
-## Hito 5: Despliegue en la Nube (Cloud Deployment)
+El sistema ha sido estructurado siguiendo el paradigma de un Monorepo, facilitando su despliegue automatizado y segmentado en múltiples plataformas especializadas de Cloud Computing.
 
-El sistema completo ha sido preparado para ser desplegado en plataformas gratuitas en la nube. Sigue estos pasos para obtener las URLs públicas de tu proyecto.
+### 3.1. Persistencia de Datos (MongoDB Atlas)
+- **Proveedor:** MongoDB Atlas.
+- **Configuración:** Implementación de un clúster de bases de datos NoSQL para la persistencia transaccional. Requiere configuración explícita de `Network Access` (IP `0.0.0.0/0`) para mitigar rechazos a nivel TLS durante las peticiones asíncronas desde instancias Cloud dinámicas.
 
-### 1. Base de Datos (MongoDB Atlas)
-1. Ve a [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) y crea un Cluster gratuito (M0).
-2. En `Database Access`, crea un usuario y contraseña.
-3. En `Network Access`, añade la IP `0.0.0.0/0` para permitir conexiones desde cualquier lugar (Render).
-4. Copia el **Connection String** (asegúrate de reemplazar `<password>`).
+### 3.2. Despliegue del Backend RESTful (Render)
+- **Proveedor:** Render Cloud Platform.
+- **Configuración Requerida:** 
+  - Directorio Raíz: `api`
+  - Ejecución WSGI: `gunicorn app:app`
+  - Variables de Entorno Obligatorias:
+    - `MONGO_URI`: Cadena de conexión hacia MongoDB Atlas.
+    - `MODEL_PATH`: Ubicación relativa del modelo exportado (`model/model.joblib`).
+    - `DB_NAME` y `COLLECTION_NAME`.
 
-### 2. Backend API (Render)
-1. Crea una cuenta en [Render](https://render.com/) y selecciona **New Web Service**.
-2. Conecta tu repositorio de GitHub apuntando a este proyecto.
-3. Configuración del servicio:
-   - **Root Directory:** `api`
-   - **Environment:** `Python 3`
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `gunicorn app:app` (o `python app.py`)
-4. Añade las siguientes **Environment Variables**:
-   - `MONGO_URI`: *Tu Connection String de Atlas*
-   - `MODEL_PATH`: `model/model.joblib`
-   - `DB_NAME`: `sentiment_db`
-   - `COLLECTION_NAME`: `sentiments`
-5. Haz deploy y anota la URL pública (ej. `https://tu-api.onrender.com`).
-6. Valida que funciona ingresando a `https://tu-api.onrender.com/health`.
+### 3.3. Despliegue del Frontend Cliente (Vercel)
+- **Proveedor:** Vercel.
+- **Configuración Requerida:** 
+  - Directorio Raíz: `apps/frontend`
+  - Variables de Entorno Obligatorias:
+    - `VITE_API_URL`: Dirección de la API pública desplegada.
+    - `VITE_POWERBI_URL`: URL del reporte analítico embebido.
 
-### 3. Frontend Web (Vercel)
-1. Entra a [Vercel](https://vercel.com/) y selecciona **Add New Project**.
-2. Conecta tu repositorio y selecciona la carpeta **`apps/frontend`** como Root Directory.
-3. Framework Preset: **Vite** (Vercel lo detecta automáticamente).
-4. Añade las **Environment Variables**:
-   - `VITE_API_URL`: *URL de tu API en Render* + `/api` (ej. `https://tu-api.onrender.com/api`)
-   - `VITE_POWERBI_URL`: *Tu URL pública de Power BI*
-5. Haz Deploy.
+---
 
-¡Listo! Una vez finalice, tendrás tu Frontend accesible públicamente consumiendo la API alojada en Render y guardando predicciones en Atlas.
+## 4. Integración Continua y Entrega Continua (CI/CD)
 
-## Endpoints Disponibles
+El repositorio incorpora una canalización de despliegue automatizado gestionada mediante **Jenkins**.
 
-La API estará disponible en `http://localhost:5000`.
+### Estructura del Pipeline (`Jenkinsfile`)
+El flujo de validación automática se rige por tres fases declarativas que garantizan la integridad del código previo a cualquier despliegue productivo:
+1. **Source Control Checkout:** Sincronización criptográfica con el repositorio remoto.
+2. **Backend Validation:** Creación de un entorno virtual aislado para validar las dependencias algorítmicas de Python (`requirements.txt`). Implementa mitigaciones dinámicas en el pipeline para la resolución automática de dependencias que carecen de binarios pre-compilados en entornos virtualizados de pruebas (e.g., resolviendo colisiones con versiones recientes de Python mediante `sed`).
+3. **Frontend Compilation:** Descarga de paquetes Node.js (`npm install`) y ensamblaje de los artefactos estáticos listos para distribución (SPA build).
 
-- `GET /health` : Retorna el estado de la API.
-- `GET /api/stats` : Conteo total de sentimientos registrados.
-- `GET /api/sentiments?limit=20` : Lista de los últimos registros.
-- `POST /api/predict` : Procesa un nuevo texto.
+---
 
-### Ejemplo de Request POST `/predict` (Prueba)
+## 5. Documentación de Endpoints REST (API)
 
-Usando **cURL**:
-```bash
-curl -X POST http://localhost:5000/api/predict \
-     -H "Content-Type: application/json" \
-     -d '{"texto": "Este es un excelente servicio, estoy muy feliz!"}'
-```
+A continuación, se detalla la especificación de los recursos expuestos por la API alojada en la raíz del entorno productivo (por defecto `http://localhost:5000` en entornos de desarrollo).
 
-Ejemplo de respuesta:
-```json
-{
-  "texto": "Este es un excelente servicio, estoy muy feliz!",
-  "sentimiento": "positivo",
-  "confianza": 0.87,
-  "timestamp": "2026-05-01T14:30:00.000Z"
-}
-```
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/health` | Validación de disponibilidad del servicio y tolerancia a fallos. |
+| `GET` | `/api/stats` | Agrupación analítica y agregación de sentimientos globales mediante pipelines O-D en MongoDB. |
+| `GET` | `/api/sentiments?limit=N` | Recuperación paginada del histórico reciente de inferencias. |
+| `POST` | `/api/predict` | End-point transaccional. Ingiere el texto (payload JSON `{"texto": "..."}`), lo procesa a través del modelo Naive Bayes y retorna la clasificación estadística con su respectivo factor de confianza. |
 
-## Pruebas (Tests)
+---
 
-Para ejecutar las pruebas localmente (fuera de Docker):
-```bash
-cd api
-pip install -r requirements.txt
-pytest tests/
-```
